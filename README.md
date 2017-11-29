@@ -1,4 +1,4 @@
-# Modelar-Postgres-Adapter
+# Modelar-Mssql-Adapter
 
 **This is an adapter for [Modelar](http://modelar.hyurl.com) to connect**
 **MicroSoft SQL Server database.**
