@@ -8,6 +8,7 @@ class MssqlAdapter extends Adapter {
         super();
         this.backquote = "[]";
         this.oldcon = null;
+        this._transaction = null;
     }
 
     /** Methods for DB */
