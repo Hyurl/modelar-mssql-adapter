@@ -1,6 +1,6 @@
 const mssql = require("mssql");
 const { ConnectionPool, Transaction } = mssql;
-const Adapter = require("modelar").Adapter;
+const { Adapter } = require("modelar");
 const Pools = {};
 
 class MssqlAdapter extends Adapter {
@@ -118,7 +118,7 @@ class MssqlAdapter extends Adapter {
 
     close() { }
 
-    static close() {
+    closeAll() {
         for (let i in Pools) {
             Pools[i].close();
             delete Pools[i];
