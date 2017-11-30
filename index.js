@@ -213,7 +213,6 @@ class MssqlAdapter extends Adapter {
     getSelectSQL(query) {
         var isCount = (/count\(distinct\s\S+\)/i).test(query._selects),
             orderBy = query._orderBy ? `order by ${query._orderBy}` : "",
-            where = query._where ? ` where ${query._where}` : "",
             paginated = query._limit instanceof Array,
             sql = "select ";
 
@@ -228,12 +227,17 @@ class MssqlAdapter extends Adapter {
         sql += " from " +
             (!query._join ? query.backquote(query._table) : "") +
             query._join +
-            (query._where ? " where " + query._where : "") +
-            (query._groupBy ? " group by " + query._groupBy : "") +
-            (query._having ? "having " + query._having : "");
+            (query._where ? " where " + query._where : "");
+
+        if (!paginated && orderBy)
+            sql += ` ${orderBy}`;
+
+        sql += (query._groupBy ? " group by " + query._groupBy : "") +
+            (query._having ? " having " + query._having : "");
 
         if (paginated)
             sql = `select * from (${sql}) tmp where tmp.rn > ${query._limit[0]} and tmp.rn <= ${query._limit[0] + query._limit[1]}`;
+        
         if (query._union)
             sql += ` union ${query._union}`;
         return sql;

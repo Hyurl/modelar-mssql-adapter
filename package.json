@@ -1,6 +1,6 @@
 {
     "name": "modelar-mssql-adapter",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "An adapter for Modelar to connect MicroSoft SQL Server database.",
     "main": "index.js",
     "scripts": {
@@ -15,7 +15,7 @@
     "author": {
         "name": "Ayon Lee",
         "email": "i@hyurl.com",
-        "url": "hyurl.com"
+        "url": "http://hyurl.com"
     },
     "repository": {
         "type": "git",
