@@ -6,14 +6,14 @@
 ## Install
 
 ```sh
-npm install modelar-mssql-adpater
+npm install modelar-mssql-adapter
 ```
 
 ## How To Use
 
 ```javascript
 const { DB } = require("modelar");
-const MssqlAdapter = require("modelar-mssql-adpater");
+const MssqlAdapter = require("modelar-mssql-adapter");
 
 DB.setAdapter("mssql", MssqlAdapter).init({
     type: "mssql",
