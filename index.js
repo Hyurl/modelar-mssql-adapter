@@ -114,7 +114,9 @@ class MssqlAdapter extends Adapter {
         });
     }
 
-    release() { }
+    release() { 
+        this.connection = null;
+     }
 
     close() { }
 
