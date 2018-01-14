@@ -42,11 +42,6 @@ class MssqlAdapter extends Adapter {
     }
 
     query(db, sql, bindings) {
-        if (this.connection === null) {
-            return this.connect(db).then(db => {
-                return this.query(db, sql, bindings);
-            });
-        }
         for (let i in bindings) {
             sql = sql.replace("?", `@param${i}`);
             this.connection.input(`param${i}`, bindings[i]);
@@ -85,11 +80,16 @@ class MssqlAdapter extends Adapter {
         });
         if (typeof callback == "function") {
             return promise.then(db => {
-                return callback.call(db, db);
+                let res = callback.call(db, db);
+                if (res.then instanceof Function) {
+                    return res.then(() => db);
+                } else {
+                    return db;
+                }
             }).then(db => {
-                return this.commit();
+                return this.commit(db);
             }).catch(err => {
-                return this.rollback().then(db => {
+                return this.rollback(db).then(db => {
                     throw err;
                 });
             });
@@ -120,7 +120,7 @@ class MssqlAdapter extends Adapter {
 
     close() { }
 
-    closeAll() {
+    static close() {
         for (let i in Pools) {
             Pools[i].close();
             delete Pools[i];
@@ -148,10 +148,10 @@ class MssqlAdapter extends Adapter {
                 autoIncrement = null;
             }
             if (field.length instanceof Array) {
-                field.length = field.length.join(",");
-            }
-            if (field.length)
+                field.type += "(" + field.length.join(",") + ")";
+            } else if (field.length) {
                 field.type += "(" + field.length + ")";
+            }
 
             let column = table.backquote(field.name) + " " + field.type;
 
@@ -191,9 +191,7 @@ class MssqlAdapter extends Adapter {
         if (foreigns.length)
             sql += ",\n\t" + foreigns.join(",\n\t");
 
-        sql += "\n)";
-
-        return sql;
+        return sql += "\n)";
     }
 
     /** Methods for Query */
@@ -246,4 +244,4 @@ class MssqlAdapter extends Adapter {
     }
 }
 
-module.exports = new MssqlAdapter;
+module.exports = MssqlAdapter;
