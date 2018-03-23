@@ -243,5 +243,6 @@ class MssqlAdapter extends Adapter {
         return sql;
     }
 }
+MssqlAdapter.MssqlAdapter = MssqlAdapter;
 
 module.exports = MssqlAdapter;
