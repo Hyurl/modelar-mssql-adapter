@@ -1,8 +1,9 @@
 {
     "name": "modelar-mssql-adapter",
-    "version": "0.2.1",
+    "version": "3.0.0",
     "description": "An adapter for Modelar to connect MicroSoft SQL Server database.",
-    "main": "index.js",
+    "main": "dist/index.js",
+    "types": "src/index.ts",
     "scripts": {
         "test": "node test"
     },
@@ -23,7 +24,8 @@
     },
     "license": "MIT",
     "dependencies": {
-        "modelar": "^2.1.0",
+        "@types/mssql": "^4.0.6",
+        "modelar": "^3.0.0",
         "mssql": "^4.1.0"
     }
 }

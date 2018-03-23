@@ -1,12 +1,19 @@
 # Modelar-Mssql-Adapter
 
-**This is an adapter for [Modelar](http://modelar.hyurl.com) to connect**
-**MicroSoft SQL Server database.**
+**This is an adapter for [Modelar](https://github.com/hyurl/modelar) to**
+**connect MicroSoft SQL Server database.**
 
 ## Install
 
 ```sh
-npm install modelar-mssql-adapter
+npm install modelar-mssql-adapter --save
+```
+
+The above command will install the latest version for Modelar 3.0+, if you're 
+using Modelar 2.X, use the following command instead:
+
+```sh
+npm install modelar-mssql-adapter --tag modelar2 --save
 ```
 
 ## How To Use

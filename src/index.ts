@@ -1,65 +1,65 @@
-const mssql = require("mssql");
-const { ConnectionPool, Transaction } = mssql;
-const { Adapter } = require("modelar");
-const Pools = {};
+import { Adapter, DB, Query, Table } from "modelar";
+import { ConnectionPool, Transaction, Request, config as Config } from "mssql";
 
-class MssqlAdapter extends Adapter {
-    constructor() {
-        super();
-        this.backquote = "[]";
-        this.oldcon = null;
-        this._transaction = null;
-    }
+export class MssqlAdapter extends Adapter {
+    backquote = "[]";
+    connection: Request;
+    oldcon: Request;
+    _transaction: Transaction;
 
-    /** Methods for DB */
+    static Pools: { [dsn: string]: ConnectionPool } = {};
 
-    connect(db) {
+    connect(db: DB): Promise<DB> {
         return new Promise((resolve, reject) => {
-            if (Pools[db._dsn] === undefined) {
-                var config = Object.assign({}, db._config);
-                config.server = config.host;
-                config.connectionTimeout = config.timeout;
-                config.requestTimeout = config.timeout;
+            if (MssqlAdapter.Pools[db.dsn] === undefined) {
+                let config = <Config>Object.assign({}, db.config);
+                config.server = db.config.host;
+                config.connectionTimeout = db.config.timeout;
+                config.requestTimeout = db.config.timeout;
                 config.pool = {
-                    max: config.max,
+                    max: db.config.max,
                     min: 0,
-                    idleTimeoutMillis: config.timeout
+                    idleTimeoutMillis: db.config.timeout
                 };
+
                 var pool = new ConnectionPool(config, err => {
                     if (err) {
                         reject(err);
                     } else {
-                        Pools[db._dsn] = pool;
+                        MssqlAdapter.Pools[db.dsn] = pool;
                         this.connection = pool.request();
                         resolve(db);
                     }
                 });
             } else {
-                this.connection = Pools[db._dsn].request();
+                this.connection = MssqlAdapter.Pools[db.dsn].request();
                 resolve(db);
             }
         });
     }
 
-    query(db, sql, bindings) {
+    query(db: DB, sql: string, bindings?: any[]): Promise<DB> {
         for (let i in bindings) {
             sql = sql.replace("?", `@param${i}`);
             this.connection.input(`param${i}`, bindings[i]);
         }
+
         return this.connection.query(sql).then(res => {
             if (res.rowsAffected) {
-                db.affectedRows = res.rowsAffected;
+                db.affectedRows = res.rowsAffected.length;
             }
+
             if (res.recordset) {
                 if (res.recordsets && res.recordsets.length === 1) {
-                    db._data = res.recordset;
+                    db.data = res.recordset;
                 } else {
-                    db._data = res.recordsets;
+                    db.data = res.recordsets;
                 }
             }
+
             return db;
         }).then(db => {
-            if (db._command == "insert") {
+            if (db.command == "insert") {
                 return this.connection.query("select @@identity as insertId")
                     .then(res => {
                         db.insertId = res.recordset[0].insertId;
@@ -71,25 +71,27 @@ class MssqlAdapter extends Adapter {
         });
     }
 
-    transaction(db, callback = null) {
-        this._transaction = new Transaction(Pools[db._dsn]);
+    transaction(db: DB, cb: (db: DB) => void): Promise<DB> {
+        this._transaction = new Transaction(MssqlAdapter.Pools[db.dsn]);
+
         var promise = this._transaction.begin().then(() => {
             this.oldcon = this.connection;
-            this.connection = new mssql.Request(this._transaction);
+            this.connection = new Request(this._transaction);
             return db;
         });
-        if (typeof callback == "function") {
+
+        if (typeof cb == "function") {
             return promise.then(db => {
-                let res = callback.call(db, db);
+                let res = cb.call(db, db);
                 if (res.then instanceof Function) {
-                    return res.then(() => db);
+                    return res.then(() => db) as Promise<DB>;
                 } else {
                     return db;
                 }
             }).then(db => {
                 return this.commit(db);
             }).catch(err => {
-                return this.rollback(db).then(db => {
+                return this.rollback(db).then(() => {
                     throw err;
                 });
             });
@@ -98,7 +100,7 @@ class MssqlAdapter extends Adapter {
         }
     }
 
-    commit(db) {
+    commit(db: DB): Promise<DB> {
         return this._transaction.commit().then(() => {
             this.connection = this.oldcon;
             this.oldcon = null;
@@ -106,7 +108,7 @@ class MssqlAdapter extends Adapter {
         });
     }
 
-    rollback(db) {
+    rollback(db: DB): Promise<DB> {
         return this._transaction.rollback().then(() => {
             this.connection = this.oldcon;
             this.oldcon = null;
@@ -114,39 +116,40 @@ class MssqlAdapter extends Adapter {
         });
     }
 
-    release() { 
+    release(): void {
         this.connection = null;
-     }
+    }
 
-    close() { }
+    close(): void { }
 
-    static close() {
-        for (let i in Pools) {
-            Pools[i].close();
-            delete Pools[i];
+    static close(): void {
+        for (let i in MssqlAdapter.Pools) {
+            MssqlAdapter.Pools[i].close();
+            delete MssqlAdapter.Pools[i];
         }
     }
 
-    /** Methods for Table */
+    getDDL(table: Table) {
+        let numbers = ["int", "integer"];
+        let columns: string[] = [];
+        let foreigns: string[] = [];
+        let primary: string;
+        let autoIncrement: string;
 
-    getDDL(table) {
-        var numbers = ["int", "integer"],
-            columns = [],
-            foreigns = [],
-            primary,
-            autoIncrement,
-            sql;
+        for (let key in table.schema) {
+            let field = table.schema[key];
 
-        for (let field of table._fields) {
             if (field.primary && field.autoIncrement) {
                 if (!numbers.includes(field.type.toLowerCase())) {
                     field.type = "int";
                 }
-                autoIncrement = " identity(" + field.autoIncrement.join(",") + ")";
+
+                autoIncrement = " identity(" + field.autoIncrement.toString() + ")";
                 field.length = 0;
             } else {
                 autoIncrement = null;
             }
+
             if (field.length instanceof Array) {
                 field.type += "(" + field.length.join(",") + ")";
             } else if (field.length) {
@@ -157,32 +160,41 @@ class MssqlAdapter extends Adapter {
 
             if (autoIncrement)
                 column += autoIncrement;
+
             if (field.primary)
                 primary = field.name;
+
             if (field.default === null)
                 column += " default null";
             else if (field.default !== undefined)
                 column += " default " + table.quote(field.default);
+
             if (field.notNull)
                 column += " not null";
+
             if (field.unsigned)
                 column += " unsigned";
+
             if (field.unique)
                 column += " unique";
+
             if (field.comment)
                 column += " comment " + table.quote(field.comment);
+
             if (field.foreignKey.table) {
                 let foreign = `foreign key (${table.backquote(field.name)})` +
                     " references " + table.backquote(field.foreignKey.table) +
                     " (" + table.backquote(field.foreignKey.field) + ")" +
                     " on delete " + field.foreignKey.onDelete +
                     " on update " + field.foreignKey.onUpdate;
+
                 foreigns.push(foreign);
             };
+
             columns.push(column);
         }
 
-        sql = "create table " + table.backquote(table._table) +
+        let sql = "create table " + table.backquote(table.name) +
             " (\n\t" + columns.join(",\n\t");
 
         if (primary)
@@ -194,55 +206,65 @@ class MssqlAdapter extends Adapter {
         return sql += "\n)";
     }
 
-    /** Methods for Query */
-
-    random(query) {
-        query._orderBy = "NewId()";
+    random(query: Query): Query {
+        query["_orderBy"] = "NewId()";
         return query;
     }
 
-    limit(query, length, offset = 0) {
-        if (offset === 0) {
-            query._limit = length;
+    limit(query: Query, length: number, offset?: number): Query {
+        if (!offset) {
+            query["_limit"] = length;
         } else {
-            query._limit = [offset, length];
+            query["_limit"] = [offset, length];
         }
         return query;
     }
 
-    getSelectSQL(query) {
-        var isCount = (/count\(distinct\s\S+\)/i).test(query._selects),
-            orderBy = query._orderBy ? `order by ${query._orderBy}` : "",
-            paginated = query._limit instanceof Array,
-            sql = "select ";
+    getSelectSQL(query: Query): string {
+        let selects: string = query["_selects"];
+        let distinct: string = query["_distinct"];
+        let join: string = query["_join"];
+        let where: string = query["_where"];
+        let orderBy: string = query["_orderBy"];
+        let groupBy: string = query["_groupBy"];
+        let having: string = query["_having"];
+        let union: string = query["_union"];
+        let limit: number | [number, number] = <any>query["_limit"];
+        let isCount = (/count\(distinct\s\S+\)/i).test(selects);
+        let paginated = limit instanceof Array;
+        let sql = "select ";
 
-        if (query._limit && !paginated)
-            sql += `top ${query._limit} `;
+        distinct = distinct && !isCount ? "distinct " : "";
+        where = where ? ` where ${where}` : "";
+        orderBy = orderBy ? `order by ${orderBy}` : "";
+        groupBy = groupBy ? ` group by ${groupBy}` : "";
+        having = having ? ` having ${having}` : "";
+        union = union ? ` union ${union}` : "";
 
-        sql += (query._distinct && !isCount ? "distinct " : "") + `${query._selects}`;
+        if (limit && !paginated)
+            sql += `top ${limit} `;
+
+        sql += distinct + selects;
 
         if (paginated)
-            sql += ", row_number() over(" + (orderBy || "order by [id]") + ") rn";
+            sql += ", row_number() over(" + (orderBy || "order by [id]") + ") _rn";
 
         sql += " from " +
-            (!query._join ? query.backquote(query._table) : "") +
-            query._join +
-            (query._where ? " where " + query._where : "");
+            (!join ? query.backquote(query.table) : "") + join + where;
 
         if (!paginated && orderBy)
             sql += ` ${orderBy}`;
 
-        sql += (query._groupBy ? " group by " + query._groupBy : "") +
-            (query._having ? " having " + query._having : "");
+        sql += groupBy + having;
 
-        if (paginated)
-            sql = `select * from (${sql}) tmp where tmp.rn > ${query._limit[0]} and tmp.rn <= ${query._limit[0] + query._limit[1]}`;
-        
-        if (query._union)
-            sql += ` union ${query._union}`;
-        return sql;
+        if (paginated) {
+            sql = `select * from (${sql}) tmp where tmp._rn > ${limit[0]} and tmp._rn <= ${limit[0] + limit[1]}`;
+        }
+
+        return sql += union;
+    }
+
+    static get MssqlAdapter() {
+        return MssqlAdapter;
     }
 }
-MssqlAdapter.MssqlAdapter = MssqlAdapter;
-
-module.exports = MssqlAdapter;

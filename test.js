@@ -1,5 +1,5 @@
 const { DB, Table, User } = require("modelar");
-const MssqlAdapter = require("./");
+const { MssqlAdapter } = require("./");
 
 DB.setAdapter("mssql", MssqlAdapter).init({
     type: "mssql",
