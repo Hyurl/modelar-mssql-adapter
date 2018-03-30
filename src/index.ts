@@ -12,17 +12,23 @@ export class MssqlAdapter extends Adapter {
     connect(db: DB): Promise<DB> {
         return new Promise((resolve, reject) => {
             if (MssqlAdapter.Pools[db.dsn] === undefined) {
-                let config = <Config>Object.assign({}, db.config);
-                config.server = db.config.host;
-                config.connectionTimeout = db.config.timeout;
-                config.requestTimeout = db.config.timeout;
-                config.pool = {
-                    max: db.config.max,
-                    min: 0,
-                    idleTimeoutMillis: db.config.timeout
-                };
+                let config: Config | string;
+                
+                if (db.config["connectionString"]) {
+                    config = db.config["connectionString"];
+                } else {
+                    config = <Config>Object.assign({}, db.config);
+                    config.server = db.config.host;
+                    config.connectionTimeout = db.config.timeout;
+                    config.requestTimeout = db.config.timeout;
+                    config.pool = {
+                        max: db.config.max,
+                        min: 0,
+                        idleTimeoutMillis: db.config.timeout
+                    };
+                }
 
-                var pool = new ConnectionPool(config, err => {
+                var pool = new ConnectionPool(<any>config, err => {
                     if (err) {
                         reject(err);
                     } else {

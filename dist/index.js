@@ -10,15 +10,21 @@ class MssqlAdapter extends modelar_1.Adapter {
     connect(db) {
         return new Promise((resolve, reject) => {
             if (MssqlAdapter.Pools[db.dsn] === undefined) {
-                let config = Object.assign({}, db.config);
-                config.server = db.config.host;
-                config.connectionTimeout = db.config.timeout;
-                config.requestTimeout = db.config.timeout;
-                config.pool = {
-                    max: db.config.max,
-                    min: 0,
-                    idleTimeoutMillis: db.config.timeout
-                };
+                let config;
+                if (db.config["connectionString"]) {
+                    config = db.config["connectionString"];
+                }
+                else {
+                    config = Object.assign({}, db.config);
+                    config.server = db.config.host;
+                    config.connectionTimeout = db.config.timeout;
+                    config.requestTimeout = db.config.timeout;
+                    config.pool = {
+                        max: db.config.max,
+                        min: 0,
+                        idleTimeoutMillis: db.config.timeout
+                    };
+                }
                 var pool = new mssql_1.ConnectionPool(config, err => {
                     if (err) {
                         reject(err);
