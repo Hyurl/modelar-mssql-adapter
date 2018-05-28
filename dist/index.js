@@ -1,21 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const modelar_1 = require("modelar");
-const mssql_1 = require("mssql");
-class MssqlAdapter extends modelar_1.Adapter {
-    constructor() {
-        super(...arguments);
-        this.backquote = "[]";
+var tslib_1 = require("tslib");
+var modelar_1 = require("modelar");
+var mssql_1 = require("mssql");
+var assign = require("lodash/assign");
+var MssqlAdapter = (function (_super) {
+    tslib_1.__extends(MssqlAdapter, _super);
+    function MssqlAdapter() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.backquote = "[]";
+        return _this;
     }
-    connect(db) {
-        return new Promise((resolve, reject) => {
+    MssqlAdapter.prototype.connect = function (db) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
             if (MssqlAdapter.Pools[db.dsn] === undefined) {
-                let config;
+                var config = void 0;
                 if (db.config["connectionString"]) {
                     config = db.config["connectionString"];
                 }
                 else {
-                    config = Object.assign({}, db.config);
+                    config = assign({}, db.config);
                     config.server = db.config.host;
                     config.connectionTimeout = db.config.timeout;
                     config.requestTimeout = db.config.timeout;
@@ -25,29 +30,30 @@ class MssqlAdapter extends modelar_1.Adapter {
                         idleTimeoutMillis: db.config.timeout
                     };
                 }
-                var pool = new mssql_1.ConnectionPool(config, err => {
+                var pool = new mssql_1.ConnectionPool(config, function (err) {
                     if (err) {
                         reject(err);
                     }
                     else {
                         MssqlAdapter.Pools[db.dsn] = pool;
-                        this.connection = pool.request();
+                        _this.connection = pool.request();
                         resolve(db);
                     }
                 });
             }
             else {
-                this.connection = MssqlAdapter.Pools[db.dsn].request();
+                _this.connection = MssqlAdapter.Pools[db.dsn].request();
                 resolve(db);
             }
         });
-    }
-    query(db, sql, bindings) {
-        for (let i in bindings) {
-            sql = sql.replace("?", `@param${i}`);
-            this.connection.input(`param${i}`, bindings[i]);
+    };
+    MssqlAdapter.prototype.query = function (db, sql, bindings) {
+        var _this = this;
+        for (var i in bindings) {
+            sql = sql.replace("?", "@param" + i);
+            this.connection.input("param" + i, bindings[i]);
         }
-        return this.connection.query(sql).then(res => {
+        return this.connection.query(sql).then(function (res) {
             if (res.rowsAffected) {
                 db.affectedRows = res.rowsAffected.length;
             }
@@ -60,10 +66,10 @@ class MssqlAdapter extends modelar_1.Adapter {
                 }
             }
             return db;
-        }).then(db => {
+        }).then(function (db) {
             if (db.command == "insert") {
-                return this.connection.query("select @@identity as insertId")
-                    .then(res => {
+                return _this.connection.query("select @@identity as insertId")
+                    .then(function (res) {
                     db.insertId = res.recordset[0].insertId;
                     return db;
                 });
@@ -72,27 +78,28 @@ class MssqlAdapter extends modelar_1.Adapter {
                 return db;
             }
         });
-    }
-    transaction(db, cb) {
+    };
+    MssqlAdapter.prototype.transaction = function (db, cb) {
+        var _this = this;
         this._transaction = new mssql_1.Transaction(MssqlAdapter.Pools[db.dsn]);
-        var promise = this._transaction.begin().then(() => {
-            this.oldcon = this.connection;
-            this.connection = new mssql_1.Request(this._transaction);
+        var promise = this._transaction.begin().then(function () {
+            _this.oldcon = _this.connection;
+            _this.connection = new mssql_1.Request(_this._transaction);
             return db;
         });
         if (typeof cb == "function") {
-            return promise.then(db => {
-                let res = cb.call(db, db);
+            return promise.then(function (db) {
+                var res = cb.call(db, db);
                 if (res.then instanceof Function) {
-                    return res.then(() => db);
+                    return res.then(function () { return db; });
                 }
                 else {
                     return db;
                 }
-            }).then(db => {
-                return this.commit(db);
-            }).catch(err => {
-                return this.rollback(db).then(() => {
+            }).then(function (db) {
+                return _this.commit(db);
+            }).catch(function (err) {
+                return _this.rollback(db).then(function () {
                     throw err;
                 });
             });
@@ -100,41 +107,43 @@ class MssqlAdapter extends modelar_1.Adapter {
         else {
             return promise;
         }
-    }
-    commit(db) {
-        return this._transaction.commit().then(() => {
-            this.connection = this.oldcon;
-            this.oldcon = null;
+    };
+    MssqlAdapter.prototype.commit = function (db) {
+        var _this = this;
+        return this._transaction.commit().then(function () {
+            _this.connection = _this.oldcon;
+            _this.oldcon = null;
             return db;
         });
-    }
-    rollback(db) {
-        return this._transaction.rollback().then(() => {
-            this.connection = this.oldcon;
-            this.oldcon = null;
+    };
+    MssqlAdapter.prototype.rollback = function (db) {
+        var _this = this;
+        return this._transaction.rollback().then(function () {
+            _this.connection = _this.oldcon;
+            _this.oldcon = null;
             return db;
         });
-    }
-    release() {
+    };
+    MssqlAdapter.prototype.release = function () {
         this.connection = null;
-    }
-    close() { }
-    static close() {
-        for (let i in MssqlAdapter.Pools) {
+    };
+    MssqlAdapter.prototype.close = function () { };
+    MssqlAdapter.close = function () {
+        for (var i in MssqlAdapter.Pools) {
             MssqlAdapter.Pools[i].close();
             delete MssqlAdapter.Pools[i];
         }
-    }
-    getDDL(table) {
-        let numbers = ["int", "integer"];
-        let columns = [];
-        let foreigns = [];
-        let primary;
-        let autoIncrement;
-        for (let key in table.schema) {
-            let field = table.schema[key];
+    };
+    MssqlAdapter.prototype.getDDL = function (table) {
+        var numbers = ["int", "integer"];
+        var columns = [];
+        var foreigns = [];
+        var primary;
+        var autoIncrement;
+        for (var key in table.schema) {
+            var field = table.schema[key];
             if (field.primary && field.autoIncrement) {
-                if (!numbers.includes(field.type.toLowerCase())) {
+                if (numbers.indexOf(field.type.toLowerCase()) === -1) {
                     field.type = "int";
                 }
                 autoIncrement = " identity(" + field.autoIncrement.toString() + ")";
@@ -143,31 +152,32 @@ class MssqlAdapter extends modelar_1.Adapter {
             else {
                 autoIncrement = null;
             }
+            var type = field.type;
             if (field.length instanceof Array) {
-                field.type += "(" + field.length.join(",") + ")";
+                type += "(" + field.length.join(",") + ")";
             }
             else if (field.length) {
-                field.type += "(" + field.length + ")";
+                type += "(" + field.length + ")";
             }
-            let column = table.backquote(field.name) + " " + field.type;
+            var column = table.backquote(field.name) + " " + type;
             if (autoIncrement)
                 column += autoIncrement;
             if (field.primary)
                 primary = field.name;
+            if (field.unique)
+                column += " unique";
+            if (field.unsigned)
+                column += " unsigned";
+            if (field.notNull)
+                column += " not null";
             if (field.default === null)
                 column += " default null";
             else if (field.default !== undefined)
                 column += " default " + table.quote(field.default);
-            if (field.notNull)
-                column += " not null";
-            if (field.unsigned)
-                column += " unsigned";
-            if (field.unique)
-                column += " unique";
             if (field.comment)
                 column += " comment " + table.quote(field.comment);
-            if (field.foreignKey.table) {
-                let foreign = `foreign key (${table.backquote(field.name)})` +
+            if (field.foreignKey && field.foreignKey.table) {
+                var foreign = "foreign key (" + table.backquote(field.name) + ")" +
                     " references " + table.backquote(field.foreignKey.table) +
                     " (" + table.backquote(field.foreignKey.field) + ")" +
                     " on delete " + field.foreignKey.onDelete +
@@ -177,19 +187,19 @@ class MssqlAdapter extends modelar_1.Adapter {
             ;
             columns.push(column);
         }
-        let sql = "create table " + table.backquote(table.name) +
+        var sql = "create table " + table.backquote(table.name) +
             " (\n\t" + columns.join(",\n\t");
         if (primary)
             sql += ",\n\tprimary key(" + table.backquote(primary) + ")";
         if (foreigns.length)
             sql += ",\n\t" + foreigns.join(",\n\t");
         return sql += "\n)";
-    }
-    random(query) {
+    };
+    MssqlAdapter.prototype.random = function (query) {
         query["_orderBy"] = "NewId()";
         return query;
-    }
-    limit(query, length, offset) {
+    };
+    MssqlAdapter.prototype.limit = function (query, length, offset) {
         if (!offset) {
             query["_limit"] = length;
         }
@@ -197,45 +207,50 @@ class MssqlAdapter extends modelar_1.Adapter {
             query["_limit"] = [offset, length];
         }
         return query;
-    }
-    getSelectSQL(query) {
-        let selects = query["_selects"];
-        let distinct = query["_distinct"];
-        let join = query["_join"];
-        let where = query["_where"];
-        let orderBy = query["_orderBy"];
-        let groupBy = query["_groupBy"];
-        let having = query["_having"];
-        let union = query["_union"];
-        let limit = query["_limit"];
-        let isCount = (/count\(distinct\s\S+\)/i).test(selects);
-        let paginated = limit instanceof Array;
-        let sql = "select ";
+    };
+    MssqlAdapter.prototype.getSelectSQL = function (query) {
+        var selects = query["_selects"];
+        var distinct = query["_distinct"];
+        var join = query["_join"];
+        var where = query["_where"];
+        var orderBy = query["_orderBy"];
+        var groupBy = query["_groupBy"];
+        var having = query["_having"];
+        var union = query["_union"];
+        var limit = query["_limit"];
+        var isCount = (/count\(distinct\s\S+\)/i).test(selects);
+        var paginated = limit instanceof Array;
+        var sql = "select ";
         distinct = distinct && !isCount ? "distinct " : "";
-        where = where ? ` where ${where}` : "";
-        orderBy = orderBy ? `order by ${orderBy}` : "";
-        groupBy = groupBy ? ` group by ${groupBy}` : "";
-        having = having ? ` having ${having}` : "";
-        union = union ? ` union ${union}` : "";
+        where = where ? " where " + where : "";
+        orderBy = orderBy ? "order by " + orderBy : "";
+        groupBy = groupBy ? " group by " + groupBy : "";
+        having = having ? " having " + having : "";
+        union = union ? " union " + union : "";
         if (limit && !paginated)
-            sql += `top ${limit} `;
+            sql += "top " + limit + " ";
         sql += distinct + selects;
         if (paginated)
             sql += ", row_number() over(" + (orderBy || "order by [id]") + ") _rn";
         sql += " from " +
             (!join ? query.backquote(query.table) : "") + join + where;
         if (!paginated && orderBy)
-            sql += ` ${orderBy}`;
+            sql += " " + orderBy;
         sql += groupBy + having;
         if (paginated) {
-            sql = `select * from (${sql}) tmp where tmp._rn > ${limit[0]} and tmp._rn <= ${limit[0] + limit[1]}`;
+            sql = "select * from (" + sql + ") tmp where tmp._rn > " + limit[0] + " and tmp._rn <= " + (limit[0] + limit[1]);
         }
         return sql += union;
-    }
-    static get MssqlAdapter() {
-        return MssqlAdapter;
-    }
-}
-MssqlAdapter.Pools = {};
+    };
+    Object.defineProperty(MssqlAdapter, "MssqlAdapter", {
+        get: function () {
+            return MssqlAdapter;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    MssqlAdapter.Pools = {};
+    return MssqlAdapter;
+}(modelar_1.Adapter));
 exports.MssqlAdapter = MssqlAdapter;
 //# sourceMappingURL=index.js.map
