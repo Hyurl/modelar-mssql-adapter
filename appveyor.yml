@@ -9,6 +9,7 @@ install:
   - ps: Install-Product node $env:nodejs_version
   - npm install
 test_script:
+  - sqlcmd -U sa -P Password12! -Q "create database modelar;"
   - npm run init
   - npm test
 build: off
