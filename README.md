@@ -31,7 +31,7 @@ DB.init({
 ## A Tip
 
 Since [node-mssql](https://github.com/tediousjs/node-mssql) doesn't provide 
-methods to manually close and release a pooled connection (it handled 
+methods to manually close and release a pooled connection (it handles 
 internally), calling `db.close()` and `db.release()` would not work as 
 expected, but that doesn't matter, this adapter still works fine with Modelar
 in most cases, you just need to terminate all connections by calling 
