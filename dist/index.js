@@ -60,6 +60,9 @@ var MssqlAdapter = (function (_super) {
             if (res.recordset) {
                 if (res.recordsets && res.recordsets.length === 1) {
                     db.data = res.recordset;
+                    for (var i in db.data) {
+                        delete db.data[i]["_rn"];
+                    }
                 }
                 else {
                     db.data = res.recordsets;
@@ -127,7 +130,9 @@ var MssqlAdapter = (function (_super) {
     MssqlAdapter.prototype.release = function () {
         this.connection = null;
     };
-    MssqlAdapter.prototype.close = function () { };
+    MssqlAdapter.prototype.close = function () {
+        this.connection = null;
+    };
     MssqlAdapter.close = function () {
         for (var i in MssqlAdapter.Pools) {
             MssqlAdapter.Pools[i].close();
@@ -177,22 +182,23 @@ var MssqlAdapter = (function (_super) {
             if (field.comment)
                 column += " comment " + table.quote(field.comment);
             if (field.foreignKey && field.foreignKey.table) {
-                var foreign = "foreign key (" + table.backquote(field.name) + ")" +
-                    " references " + table.backquote(field.foreignKey.table) +
-                    " (" + table.backquote(field.foreignKey.field) + ")" +
-                    " on delete " + field.foreignKey.onDelete +
-                    " on update " + field.foreignKey.onUpdate;
+                var foreign = "constraint " + table.backquote(field.name + "_frk")
+                    + (" foreign key (" + table.backquote(field.name) + ")")
+                    + " references " + table.backquote(field.foreignKey.table)
+                    + " (" + table.backquote(field.foreignKey.field) + ")"
+                    + " on delete " + field.foreignKey.onDelete
+                    + " on update " + field.foreignKey.onUpdate;
                 foreigns.push(foreign);
             }
             ;
             columns.push(column);
         }
-        var sql = "create table " + table.backquote(table.name) +
-            " (\n\t" + columns.join(",\n\t");
+        var sql = "create table " + table.backquote(table.name)
+            + " (\n  " + columns.join(",\n  ");
         if (primary)
-            sql += ",\n\tprimary key(" + table.backquote(primary) + ")";
+            sql += ",\n  primary key (" + table.backquote(primary) + ")";
         if (foreigns.length)
-            sql += ",\n\t" + foreigns.join(",\n\t");
+            sql += ",\n  " + foreigns.join(",\n  ");
         return sql += "\n)";
     };
     MssqlAdapter.prototype.random = function (query) {
@@ -231,26 +237,20 @@ var MssqlAdapter = (function (_super) {
             sql += "top " + limit + " ";
         sql += distinct + selects;
         if (paginated)
-            sql += ", row_number() over(" + (orderBy || "order by [id]") + ") _rn";
+            sql += ", row_number() over(" + (orderBy || "order by @@identity") + ") [_rn]";
         sql += " from " +
             (!join ? query.backquote(query.table) : "") + join + where;
         if (!paginated && orderBy)
             sql += " " + orderBy;
         sql += groupBy + having;
         if (paginated) {
-            sql = "select * from (" + sql + ") tmp where tmp._rn > " + limit[0] + " and tmp._rn <= " + (limit[0] + limit[1]);
+            sql = "select * from (" + sql + ") tmp where tmp.[_rn] > " + limit[0] + " and tmp.[_rn] <= " + (limit[0] + limit[1]);
         }
         return sql += union;
     };
-    Object.defineProperty(MssqlAdapter, "MssqlAdapter", {
-        get: function () {
-            return MssqlAdapter;
-        },
-        enumerable: true,
-        configurable: true
-    });
     MssqlAdapter.Pools = {};
     return MssqlAdapter;
 }(modelar_1.Adapter));
 exports.MssqlAdapter = MssqlAdapter;
+exports.default = MssqlAdapter;
 //# sourceMappingURL=index.js.map

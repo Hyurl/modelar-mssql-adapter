@@ -5,8 +5,8 @@ import assign = require("lodash/assign");
 export class MssqlAdapter extends Adapter {
     backquote = "[]";
     connection: Request;
-    oldcon: Request;
-    _transaction: Transaction;
+    private oldcon: Request;
+    private _transaction: Transaction;
 
     static Pools: { [dsn: string]: ConnectionPool } = {};
 
@@ -59,6 +59,10 @@ export class MssqlAdapter extends Adapter {
             if (res.recordset) {
                 if (res.recordsets && res.recordsets.length === 1) {
                     db.data = res.recordset;
+
+                    for (let i in db.data) {
+                        delete db.data[i]["_rn"];
+                    }
                 } else {
                     db.data = res.recordsets;
                 }
@@ -127,7 +131,9 @@ export class MssqlAdapter extends Adapter {
         this.connection = null;
     }
 
-    close(): void { }
+    close(): void {
+        this.connection = null;
+    }
 
     static close(): void {
         for (let i in MssqlAdapter.Pools) {
@@ -190,11 +196,12 @@ export class MssqlAdapter extends Adapter {
                 column += " comment " + table.quote(field.comment);
 
             if (field.foreignKey && field.foreignKey.table) {
-                let foreign = `foreign key (${table.backquote(field.name)})` +
-                    " references " + table.backquote(field.foreignKey.table) +
-                    " (" + table.backquote(field.foreignKey.field) + ")" +
-                    " on delete " + field.foreignKey.onDelete +
-                    " on update " + field.foreignKey.onUpdate;
+                let foreign = "constraint " + table.backquote(field.name + "_frk")
+                    + ` foreign key (${table.backquote(field.name)})`
+                    + " references " + table.backquote(field.foreignKey.table)
+                    + " (" + table.backquote(field.foreignKey.field) + ")"
+                    + " on delete " + field.foreignKey.onDelete
+                    + " on update " + field.foreignKey.onUpdate;
 
                 foreigns.push(foreign);
             };
@@ -202,14 +209,14 @@ export class MssqlAdapter extends Adapter {
             columns.push(column);
         }
 
-        let sql = "create table " + table.backquote(table.name) +
-            " (\n\t" + columns.join(",\n\t");
+        let sql = "create table " + table.backquote(table.name)
+            + " (\n  " + columns.join(",\n  ");
 
         if (primary)
-            sql += ",\n\tprimary key(" + table.backquote(primary) + ")";
+            sql += ",\n  primary key (" + table.backquote(primary) + ")";
 
         if (foreigns.length)
-            sql += ",\n\t" + foreigns.join(",\n\t");
+            sql += ",\n  " + foreigns.join(",\n  ");
 
         return sql += "\n)";
     }
@@ -255,7 +262,7 @@ export class MssqlAdapter extends Adapter {
         sql += distinct + selects;
 
         if (paginated)
-            sql += ", row_number() over(" + (orderBy || "order by [id]") + ") _rn";
+            sql += ", row_number() over(" + (orderBy || "order by @@identity") + ") [_rn]";
 
         sql += " from " +
             (!join ? query.backquote(query.table) : "") + join + where;
@@ -266,13 +273,11 @@ export class MssqlAdapter extends Adapter {
         sql += groupBy + having;
 
         if (paginated) {
-            sql = `select * from (${sql}) tmp where tmp._rn > ${limit[0]} and tmp._rn <= ${limit[0] + limit[1]}`;
+            sql = `select * from (${sql}) tmp where tmp.[_rn] > ${limit[0]} and tmp.[_rn] <= ${limit[0] + limit[1]}`;
         }
 
         return sql += union;
     }
-
-    static get MssqlAdapter() {
-        return MssqlAdapter;
-    }
 }
+
+export default MssqlAdapter;
