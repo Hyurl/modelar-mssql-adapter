@@ -1,6 +1,6 @@
 {
     "name": "modelar-mssql-adapter",
-    "version": "3.0.3",
+    "version": "3.0.4",
     "description": "An adapter for Modelar to connect MicroSoft SQL Server database.",
     "main": "dist/index.js",
     "types": "src/index.ts",

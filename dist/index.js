@@ -240,13 +240,13 @@ var MssqlAdapter = (function (_super) {
             sql += ", row_number() over(" + (orderBy || "order by @@identity") + ") [_rn]";
         sql += " from " +
             (!join ? query.backquote(query.table) : "") + join + where;
+        sql += groupBy + having + union;
         if (!paginated && orderBy)
             sql += " " + orderBy;
-        sql += groupBy + having;
         if (paginated) {
             sql = "select * from (" + sql + ") tmp where tmp.[_rn] > " + limit[0] + " and tmp.[_rn] <= " + (limit[0] + limit[1]);
         }
-        return sql += union;
+        return sql;
     };
     MssqlAdapter.Pools = {};
     return MssqlAdapter;
