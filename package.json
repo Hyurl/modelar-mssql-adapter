@@ -25,20 +25,20 @@
     },
     "license": "MIT",
     "dependencies": {
-        "@types/lodash": "^4.14.109",
-        "@types/mssql": "^4.0.7",
-        "lodash": "^4.17.10",
-        "modelar": "^3.0.6",
-        "mssql": "^4.1.0",
-        "tslib": "^1.9.2"
+        "@types/mssql": "^4.0.13",
+        "lodash": "^4.17.11",
+        "modelar": "^3.2.4",
+        "mssql": "^4.3.7",
+        "tslib": "^1.9.3"
     },
     "engines": {
         "node": ">=4.0"
     },
     "devDependencies": {
-        "@types/mocha": "^5.2.1",
+        "@types/lodash": "^4.14.124",
+        "@types/mocha": "^5.2.6",
         "co": "^4.6.0",
         "mocha": "^5.2.0",
-        "url6": "^6.0.2"
+        "url6": "^6.0.4"
     }
 }
